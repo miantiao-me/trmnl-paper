@@ -1,207 +1,156 @@
 # 仓库 Agent 指南
+本仓库是 TRMNL 相关 skills 集合，不是完整应用。
+先确认你在改哪条路线，再读对应 `SKILL.md` 与 `references/`。
 
-本仓库是 TRMNL 相关 skills 集合，不是完整应用。修改前先读对应 skill 的 `SKILL.md` 与 `references/`，再动手。
+## 1. 仓库定位
+- `skills/trmnl-paper-blade/`：生成 `<x-trmnl::...>` Blade markup
+- `skills/trmnl-paper-takumi/`：用 Takumi JSX / Tailwind 渲染 800x480 图像，再包最小 wrapper markup
+- `skills/trmnl-paper-screen/`：通过 LaraPaper `/api/screens` 推送已生成的 markup
+- Python 脚本都只用标准库；Node 依赖只存在于 `skills/trmnl-paper-takumi/`
+- 仓库以 skill 说明与参考资料为主；改脚本前不要跳过文档核对
 
-## 项目速览
+## 2. 开工前必读
+- 改 `trmnl-paper-blade`：先读 `skills/trmnl-paper-blade/SKILL.md`
+- Blade 结构与组件：看 `references/components/`、`design-rules.md`、`patterns.md`、`attributes.md`、`colors.md`
+- 改 `trmnl-paper-takumi`：先读 `skills/trmnl-paper-takumi/SKILL.md`
+- Takumi 工作流：看 `takumi-basics.md`、`render-workflow.md`、`trmnl-wrapper.md`、`examples.md`、`api_reference.md`
+- 改 `trmnl-paper-screen`：先读 `skills/trmnl-paper-screen/SKILL.md`
+- 推送 API 与效果检查：看 `references/api-screens.md`、`references/review-checklist.md`
+- 若文档与上游行为不一致，先修正文档或说明差异，不要臆造组件、props、接口或 CLI 行为
 
-- `trmnl-paper-blade`：生成 TRMNL Framework v3 / `trmnl-blade` 的 Blade markup
-- `trmnl-paper-takumi`：用 Takumi JSX / Tailwind 走 image-first 路线，生成 800x480 图像并包最小 TRMNL markup
-- `trmnl-paper-screen`：把已有 markup 通过 LaraPaper `/api/screens` 推送到设备
-- 仓库以文档与 skill 说明为主；`blade` / `screen` 的 Python 脚本仅使用标准库，`takumi` 在 skill 目录内使用独立 Node 依赖
+## 3. 外部规则文件
+- 未发现 `.cursor/rules/`
+- 未发现 `.cursorrules`
+- 未发现 `.github/copilot-instructions.md`
+- 当前仓库的主要约束来源就是本文件、各 skill 的 `SKILL.md` 与 `references/`
 
-## 目录结构
+## 4. 构建 / Lint / 测试速查
+### 总体结论
+- 没有统一构建系统
+- 没有 `pytest`、`unittest`、`vitest`、`jest` 等测试框架
+- “测试”主要依靠：`py_compile`、CLI `--help`、`ruff check`、`npx tsc --noEmit`、单场景渲染、markup 校验、push dry-run
+- 不要编造不存在的 `npm test`、`pytest -k` 或单测目录
 
-```text
-skills/
-├── trmnl-paper-blade/
-│   ├── SKILL.md
-│   ├── references/
-│   │   ├── components/           # layout, screen, view, title_bar, item, table, ...
-│   │   ├── examples/             # 完整屏幕示例
-│   │   ├── design-rules.md, patterns.md, attributes.md, colors.md
-│   │   ├── guides.md, utilities.md
-│   └── scripts/validate_markup.py
-├── trmnl-paper-takumi/
-│   ├── SKILL.md
-│   ├── assets/templates/         # Takumi scene 模板
-│   ├── references/               # Takumi 能力、工作流、wrapper 规则、示例
-│   ├── scripts/render_scene.tsx
-│   └── scripts/wrap_image_markup.py
-└── trmnl-paper-screen/
-    ├── SKILL.md
-    ├── references/api-screens.md
-    └── scripts/push_screen.py
-```
-
-## 构建 / 校验 / 测试
-
-无构建步骤、无测试框架。验证方式如下：
-
-### Python 脚本编译检查
-
+### Python：编译与 CLI smoke check
 ```bash
-python3 -m py_compile skills/trmnl-paper-screen/scripts/push_screen.py
 python3 -m py_compile skills/trmnl-paper-blade/scripts/validate_markup.py
-python3 skills/trmnl-paper-screen/scripts/push_screen.py --help
+python3 -m py_compile skills/trmnl-paper-screen/scripts/push_screen.py
+python3 -m py_compile skills/trmnl-paper-takumi/scripts/wrap_image_markup.py
 python3 skills/trmnl-paper-blade/scripts/validate_markup.py --help
+python3 skills/trmnl-paper-screen/scripts/push_screen.py --help
 python3 skills/trmnl-paper-takumi/scripts/wrap_image_markup.py --help
 ```
 
-### Takumi 渲染环境检查
-
-`trmnl-paper-takumi` 单独使用 Node 依赖，在 skill 目录内安装与验证：
-
+### Ruff
+仓库里没有 `pyproject.toml` / repo-local ruff 配置；按 ruff 默认规则执行。
 ```bash
-cd skills/trmnl-paper-takumi
+ruff check .
+ruff check skills/trmnl-paper-screen/scripts/push_screen.py
+ruff check --fix .
+```
+
+### Takumi：安装、类型检查、单场景渲染
+以下命令在 `skills/trmnl-paper-takumi/` 目录执行：
+```bash
 npm install
 npx tsc --noEmit
 npm run render -- --scene assets/templates/clock.tsx
 npm run render -- --scene assets/templates/google-font-showcase.tsx
-python3 -m py_compile scripts/wrap_image_markup.py
-ruff check scripts/wrap_image_markup.py
 ```
+- `package.json` 里唯一脚本是：`npm run render`
+- `tsconfig.json` 启用了 `strict: true`、`noEmit: true`、`jsx: react-jsx`
 
-### Blade markup 校验
-
+### 最小粒度检查（相当于“单测”）
+没有真正的单元测试；最小检查粒度如下：
 ```bash
-python3 skills/trmnl-paper-blade/scripts/validate_markup.py <markup-file>
-echo '<x-trmnl::screen>...</x-trmnl::screen>' | python3 skills/trmnl-paper-blade/scripts/validate_markup.py
+# 单个 Python 文件
+python3 -m py_compile path/to/script.py
+ruff check path/to/script.py
+
+# 单个 markup 文件
+python3 skills/trmnl-paper-blade/scripts/validate_markup.py ./screen.markup
+
+# 单个 Takumi scene
+npm run render -- --scene assets/templates/<scene>.tsx
+
+# 单个 wrapper 工作流
+python3 skills/trmnl-paper-takumi/scripts/wrap_image_markup.py \
+  --url https://example.com/demo.webp \
+  --title Demo \
+  --out /tmp/demo.markup
+python3 skills/trmnl-paper-blade/scripts/validate_markup.py /tmp/demo.markup
 ```
 
-### Lint（ruff）
-
-```bash
-ruff check .                  # 检查全部
-ruff check <file>             # 检查单个文件
-ruff check --fix .            # 自动修复
-```
-
-### 推送脚本 dry-run 验证
-
-改动请求构造逻辑后，跑一次 dry-run 确认输出正确：
-
+### Push dry-run / 集成检查
+默认先 dry-run；只有用户明确要求时才真发请求。
 ```bash
 python3 skills/trmnl-paper-screen/scripts/push_screen.py \
   --base-url https://example.com \
   --mac-address AA:BB:CC:DD:EE:FF \
   --api-key test-key \
-  --markup-file <some-file>
+  --markup-file ./screen.markup
 ```
 
-### Takumi wrapper 验证
+## 5. 代码风格：通用原则
+- 保持 KISS；这是 skill 仓库，不要引入无必要抽象层
+- 改文档时以事实为准；引用上游时注明来源文件或链接
+- 注释解释 why，不重复解释 what
+- 用户可见的 CLI 文案与错误信息优先中文
+- 修改时尽量延续现有文件的语言、缩进、导入顺序、命名和错误处理模式
 
-改动 `wrap_image_markup.py` 或 image-first 工作流后，补一次 wrapper 校验：
+### Python 风格
+- 脚本入口保留 shebang：`#!/usr/bin/env python3`
+- 首个非 shebang 语句应是 `from __future__ import annotations`
+- 常量放在导入后；文件末尾保留 `raise SystemExit(main())`
+- 仅使用标准库；不要为现有脚本补第三方依赖
+- 导入分组：`__future__` → 标准库；组内按字母序或模块族自然排序
+- 4 空格缩进，双引号，多行参数保留尾随逗号，行宽遵循 ruff 默认 88
+- 函数签名补全参数和返回值类型；用内置泛型与 `X | None`
+- 函数/变量用 `snake_case`；常量用 `UPPER_SNAKE_CASE`；私有辅助项用前导下划线
+- 输入校验抛 `ValueError`；运行时 / IO / 网络失败抛 `RuntimeError`
+- 需要保留底层异常时使用 `raise ... from error`
+- stderr 输出错误；退出码保持 `0` 成功、`1` 运行时失败、`2` 参数/输入错误
+- argparse 使用 `RawDescriptionHelpFormatter`；`epilog` 说明规则与退出码
 
-```bash
-python3 skills/trmnl-paper-takumi/scripts/wrap_image_markup.py \
-  --url https://example.com/demo.webp \
-  --title Demo \
-  --out /tmp/demo.markup
+### TypeScript / TSX 风格
+- 使用 ESM；当前 `package.json` 为 `"type": "module"`
+- JSX 运行时为 `react-jsx`；代码库默认严格类型检查，不能靠关闭 `strict` 绕过问题
+- 导入顺序遵循现有习惯：`node:` 内建模块 → 外部包 → 本地模块
+- 类型导入使用 `import type { ... }`
+- 2 空格缩进，双引号，不写分号，多行对象 / 参数 / 数组保留尾随逗号
+- 公共数据结构优先用 `interface`，如 `Props`、`SceneModule`、`Metric`
+- 帮助函数、异步函数、解析函数保留显式返回类型
+- JSON 解析结果先收窄，再转成 `Record<string, unknown>` 之类的安全类型
+- 组件、类、接口用 `PascalCase`；函数、变量用 `camelCase`；真正常量才用 `UPPER_SNAKE_CASE`
+- scene 默认导出应是 React 组件或 React 元素；可选导出 `renderOptions`、`googleFonts`、`googleFontText`
+- CLI 输入错误走显式输入错误分支；当前 `render_scene.tsx` 用 `InputError`
+- 用户可见错误信息保持中文；入口处集中 `catch`，把输入错误映射到退出码 `2`，其他失败映射到 `1`
+- 非致命问题用 `console.warn` / `console.error` 明确提示，不要静默吞错
 
-python3 skills/trmnl-paper-blade/scripts/validate_markup.py /tmp/demo.markup
-```
+## 6. 领域规则
+- 结构化屏幕优先复用 `<x-trmnl::...>` 组件，不要先写自由 HTML/CSS
+- 以 TRMNL Framework v3 与 `trmnl-blade` 为准，不要捏造不存在的组件或属性
+- `validate_markup.py` 当前关心的核心结构规则：
+  - `title-bar` 必须是 `layout` 的兄弟节点
+  - `layout` 不能嵌套
+  - 每个 `view` 内必须且只能有一个 `layout`
+  - `<x-trmnl::table>` 内不要嵌套原生 `<table>`
+- `trmnl-paper-takumi` 只负责 image-first 路线，不替代结构化 Blade skill
+- Takumi 默认目标尺寸是 TRMNL OG：800x480
+- 只有 scene 导出 `googleFonts` 或显式传 `--google-font` 时，才远程加载 Google Fonts
+- 推送前必须先把图片变成可访问 URL；不要把本地文件路径直接交给 LaraPaper
+- `trmnl-paper-screen` 只走已验证路径：`POST /api/screens`
+- 推送认证只用设备级凭据：`id=<MAC>`、`access-token=<device api key>`
 
-## 代码风格（Python）
+## 7. 变更后验证清单
+- 文档改动：核对对应上游文档或源码，确保没有虚构内容
+- Blade / wrapper 改动：至少跑一次 `validate_markup.py`
+- Python 脚本改动：`py_compile` + `--help` + `ruff check`
+- Takumi 脚本改动：`npx tsc --noEmit` + 至少渲染一个 scene
+- image-first 工作流改动：生成一次 `.markup` 并再次过 `validate_markup.py`
+- 推送逻辑改动：至少做一次 dry-run；只有用户要求时再 `--send`
 
-### 文件结构
-
-- shebang 行：`#!/usr/bin/env python3`
-- 首行导入始终为 `from __future__ import annotations`
-- 模块级常量紧跟导入之后
-- 入口函数 `main() -> int` 置于文件末尾，入口点为 `raise SystemExit(main())`
-
-### 导入
-
-- 仅使用标准库，不引入第三方依赖
-- 按字母序排列，分组：`__future__` → 标准库（空行分隔）
-
-### 格式化
-
-- 4 空格缩进
-- 双引号 `"` 为默认字符串引号
-- 多行参数列表使用尾随逗号
-- 行宽遵循 ruff 默认（88 字符）
-
-### 类型标注
-
-- 所有函数签名必须有参数和返回值类型标注
-- 使用小写内置泛型：`list[str]`、`dict[str, str]`、`tuple[str, int]`（非 `List`/`Dict`/`Tuple`）
-- 联合类型用 `X | None`（非 `Optional[X]`）
-- 多返回值用 `tuple[T1, T2]`
-
-### 命名
-
-- 函数、变量：`snake_case`
-- 模块级常量：`UPPER_SNAKE_CASE`
-- 私有函数 / 变量：`_leading_underscore`
-- 编译正则常量：`_NAME_RE` 格式
-
-### 错误处理
-
-- 输入校验用 `ValueError`，运行时错误用 `RuntimeError`
-- 链式 re-raise：`raise ValueError(...) from error`
-- 退出码约定：`0` 成功、`1` 运行时错误、`2` 参数 / 输入错误
-- `main()` 中用 `except ValueError` 返回 2，`except RuntimeError` 返回 1
-- 错误信息输出到 stderr：`print(..., file=sys.stderr)`
-
-### 注释与消息
-
-- 代码注释用英文，解释 why 而非 what；不写多余注释
-- 面向用户的错误消息和 CLI help 用中文
-- argparse 使用 `RawDescriptionHelpFormatter`，epilog 列出规则与退出码
-
-## 工作规则
-
-- 优先复用 `<x-trmnl::...>` 组件，不要先写自由 HTML/CSS
-- 以 TRMNL Framework v3 与 `trmnl-blade` 为准，不要臆造不存在的组件或 props
-- Blade 结构层级与 e-paper 约束以 `references/design-rules.md` 为准
-- `trmnl-paper-takumi` 只负责 image-first 路线：Takumi scene → 图片 → 最小 wrapper，不替代结构化 Blade skill
-- `trmnl-paper-takumi` 默认只在 scene 声明 `googleFonts` 或显式传 `--google-font` 时才远程加载 Google Fonts
-- 远端推送前，Takumi 产物必须先变成可访问 URL，不能直接把本地文件路径交给 LaraPaper
-- `trmnl-paper-screen` 只使用已验证路径：`POST /api/screens`
-- 推送认证只用设备级凭据：`id=<MAC address>`、`access-token=<device API key>`
-- 默认先 dry-run；只有用户明确要求时才真的发送请求
-
-## 修改指引
-
-### 改 `trmnl-paper-blade` 时
-
-1. 先读 `skills/trmnl-paper-blade/SKILL.md`
-2. 组件细节 → `references/components/`；完整示例 → `references/patterns.md` 或 `references/examples/`
-3. 结构约束 → `references/design-rules.md`；颜色 → `references/colors.md`；属性 → `references/attributes.md`
-4. 如与上游不一致，优先修正文档，不要硬编 API
-
-### 改 `trmnl-paper-screen` 时
-
-1. 先读 `skills/trmnl-paper-screen/SKILL.md`
-2. 请求格式以 `references/api-screens.md` 为准
-3. 保持纯标准库，保留 dry-run、安全 masking、清晰错误输出
-
-### 改 `trmnl-paper-takumi` 时
-
-1. 先读 `skills/trmnl-paper-takumi/SKILL.md`
-2. Takumi 能力边界、字体、图片与 Google Fonts → `references/takumi-basics.md`
-3. 从 scene 到 wrapper 的链路 → `references/render-workflow.md`
-4. TRMNL 最小包装规则 → `references/trmnl-wrapper.md`
-5. 命令示例 → `references/examples.md`
-6. Node API 与当前 skill 封装边界 → `references/api_reference.md`
-7. 改完后跑 `npx tsc --noEmit` + 至少一次模板渲染 + wrapper 校验
-
-## 验证清单
-
-1. **文档改动**：核对上游文档或源码，确认没有虚构内容
-2. **Blade markup 改动**：运行 `validate_markup.py` 校验结构
-3. **Python 脚本改动**：`py_compile` + `--help` + `ruff check`
-4. **Takumi 脚本改动**：`npm install`（首次）+ `npx tsc --noEmit` + 至少一次模板渲染
-5. **Takumi wrapper / image-first 工作流改动**：生成一次 `.markup` 并用 `validate_markup.py` 校验
-6. **请求构造逻辑改动**：补一次 dry-run 验证
-
-## 参考资料更新
-
-`references/` 目录基于上游整理。当上游框架发布重大版本时，对照上游逐项核实，新增缺失项，移除废弃项，commit message 中注明上游版本或日期。发现不一致时优先修正文档。
-
-## 上游来源
-
+## 8. 上游来源
 - TRMNL Framework Docs: https://trmnl.com/framework/docs/v3
 - trmnl-blade: https://github.com/bnussbau/trmnl-blade
 - Takumi: https://github.com/kane50613/takumi

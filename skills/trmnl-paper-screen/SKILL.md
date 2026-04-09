@@ -109,6 +109,8 @@ description: >
 
 ### 交接格式
 
+以下 YAML 是 `trmnl-paper-screen` 与 `trmnl-paper-blade` 共用的权威交接格式。
+
 推送后如需回传问题给 `trmnl-paper-blade`，每条问题使用以下最小字段格式：
 
 ```yaml

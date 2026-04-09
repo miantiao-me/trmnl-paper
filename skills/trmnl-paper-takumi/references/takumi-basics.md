@@ -15,6 +15,8 @@
 
 - 以 `item` / `table` / `richtext` / `progress` 为主的结构化屏幕
 
+> 视觉风格细则读 `design-rules.md`：默认按电子墨水屏友好的黑白、高对比、排版驱动路线出图，不把 Takumi 当普通彩色 UI 截图工具。
+
 ## 上游官方支持范围
 
 `llms-full.txt` 明确说明，上游 Takumi 支持：
@@ -54,6 +56,7 @@
 - 根节点始终显式声明宽高
 - 优先使用整数尺寸、整数间距
 - Takumi v1 默认 `display: inline`；容器布局要显式写 `flex` / `grid` / `block`
+- 默认优先白底黑字，灰阶只保留极少量辅助层
 
 示例：
 
@@ -109,6 +112,18 @@ export const googleFonts = ["Noto Sans SC:wght@400;700", "Noto Sans Symbols 2"]
 
 - monospace：`'IBM Plex Mono', 'Geist Mono', monospace`
 - sans：`'Noto Sans SC', 'Noto Sans Symbols 2', 'Geist', sans-serif`
+
+如果想吸收更强的 Nothing 风格，但仍保持电子墨水屏友好，可参考：
+
+- display（纯英文 / 数字 hero）：`'Doto', 'Space Mono', monospace`
+- body / heading：`'Space Grotesk', 'Noto Sans SC', 'Geist', sans-serif`
+- labels / data：`'Space Mono', 'IBM Plex Mono', 'Geist Mono', monospace`
+
+约束：
+
+- `Doto` 只建议用于 36px 以上的大号数字、时间或短标题，不用于正文
+- 标签、单位、坐标轴更适合 mono + ALL CAPS + 稍大字距
+- 中文优先保证可读性；不要为了风格牺牲字形完整性
 
 上游性能建议还提到：**TTF 比 WOFF2 更快**。当前 skill 选择 Google Fonts + WOFF2，是便捷与按需远程加载优先，不是性能最优解。
 

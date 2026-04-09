@@ -41,12 +41,22 @@ npm run render -- \
 ```bash
 python3 scripts/wrap_image_markup.py \
   --url https://example.com/pixel-weather.webp \
-  --title "Pixel Weather" \
   --fit contain \
   --out dist/pixel-weather.markup
 ```
 
-## 示例 6：校验后进入推送脚本
+说明：默认优先启用 `image-dither`。
+
+## 示例 6：确认不需要抖动时关闭
+
+```bash
+python3 scripts/wrap_image_markup.py \
+  --url https://example.com/pixel-weather.webp \
+  --no-dither \
+  --out dist/pixel-weather-clean.markup
+```
+
+## 示例 7：校验后进入推送脚本
 
 ```bash
 python3 ../trmnl-paper-blade/scripts/validate_markup.py dist/pixel-weather.markup

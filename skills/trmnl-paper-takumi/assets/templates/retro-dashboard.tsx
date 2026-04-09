@@ -2,7 +2,6 @@
  * retro-dashboard.tsx — Terminal-style system monitor for TRMNL e-paper (800×480).
  * Ships with default fake metrics; override via --props JSON.
  */
-import React from "react"
 import type { RenderOptions } from "@takumi-rs/core"
 import { MONO_FONT_STACK } from "./_shared"
 
@@ -11,6 +10,11 @@ export const renderOptions: Partial<RenderOptions> = {
   height: 480,
   format: "webp",
 }
+
+/** Single auxiliary gray for all secondary elements. */
+const AUX_GRAY = "#999999"
+
+const SEGMENTS = 10
 
 export interface Metric {
   /** Left-aligned label (padded to align bars). */
@@ -36,25 +40,26 @@ const DEFAULT_METRICS: Metric[] = [
   { label: "TEMP    ", value: 55, display: " 55°C" },
 ]
 
-function ProgressBar({ value }: { value: number }) {
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v))
+}
+
+function SegmentedBar({ value }: { value: number }) {
+  const safe = clamp(value, 0, 100)
+  const filled = Math.round((SEGMENTS * safe) / 100)
+
   return (
-    <div
-      style={{
-        flex: 1,
-        height: 12,
-        background: "#e8e8e8",
-        border: "1px solid #000000",
-        display: "flex",
-      }}
-    >
-      <div
-        style={{
-          width: `${Math.min(100, Math.max(0, value))}%`,
-          height: "100%",
-          // High values rendered darker for visual emphasis
-          background: value >= 80 ? "#000000" : "#444444",
-        }}
-      />
+    <div style={{ flex: 1, display: "flex", gap: 4, height: 14 }}>
+      {Array.from({ length: SEGMENTS }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            flex: 1,
+            backgroundColor: i < filled ? "#000000" : "transparent",
+            border: i < filled ? "none" : "2px solid #000000",
+          }}
+        />
+      ))}
     </div>
   )
 }
@@ -79,7 +84,7 @@ function MetricRow({ metric }: { metric: Metric }) {
       >
         {metric.label}
       </span>
-      <ProgressBar value={metric.value} />
+      <SegmentedBar value={metric.value} />
       <span
         style={{
           fontSize: 13,
@@ -128,7 +133,7 @@ export default function RetroDashboardScene({
         }}
       >
         <span style={{ fontSize: 15, letterSpacing: 4 }}>{"◆ "}{title}</span>
-        <span style={{ fontSize: 11, color: "#bbbbbb" }}>{timestamp}</span>
+        <span style={{ fontSize: 11, color: AUX_GRAY }}>{timestamp}</span>
       </div>
 
       {/* metrics panel */}
@@ -148,7 +153,7 @@ export default function RetroDashboardScene({
         ))}
 
         {/* separator */}
-        <div style={{ height: 1, background: "#cccccc", marginTop: 2 }} />
+        <div style={{ height: 1, background: "#000000", marginTop: 2 }} />
 
         {/* status footer */}
         <div
@@ -156,7 +161,7 @@ export default function RetroDashboardScene({
             display: "flex",
             justifyContent: "space-between",
             fontSize: 11,
-            color: "#777777",
+            color: AUX_GRAY,
           }}
         >
           <span>STATUS: OK</span>

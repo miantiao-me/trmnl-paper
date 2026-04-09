@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import html
+import mimetypes
 import sys
 from pathlib import Path
 
@@ -13,6 +15,9 @@ _VIEW_OPEN = "  <x-trmnl::view>"
 _VIEW_CLOSE = "  </x-trmnl::view>"
 _LAYOUT_OPEN = "    <x-trmnl::layout>"
 _LAYOUT_CLOSE = "    </x-trmnl::layout>"
+
+# mimetypes 可能缺少 webp
+mimetypes.add_type("image/webp", ".webp")
 
 
 def _attr(value: str) -> str:
@@ -28,26 +33,25 @@ def _image_classes(fit: str, dither: bool) -> str:
     return " ".join(classes)
 
 
-def build_title_bar(title: str, instance: str | None) -> str:
-    if instance:
-        return (
-            f"    <x-trmnl::title-bar"
-            f' title="{_attr(title)}"'
-            f' instance="{_attr(instance)}" />'
-        )
-    return f'    <x-trmnl::title-bar title="{_attr(title)}" />'
+def _file_to_data_uri(path: Path) -> str:
+    """Read a local image and return a base64 data URI."""
+    mime_type = mimetypes.guess_type(str(path))[0] or "image/webp"
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise RuntimeError(f"读取图片文件失败：{path} ({error})") from error
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
 
 
 def build_markup(
-    url: str,
+    src: str,
     alt: str,
-    title: str | None,
-    instance: str | None,
     fit: str,
     dither: bool,
 ) -> str:
     img_class = _image_classes(fit, dither)
-    img_tag = f'      <img class="{img_class}" src="{_attr(url)}" alt="{_attr(alt)}">'
+    img_tag = f'      <img class="{img_class}" src="{_attr(src)}" alt="{_attr(alt)}">'
 
     lines = [
         _SCREEN_OPEN,
@@ -55,47 +59,46 @@ def build_markup(
         _LAYOUT_OPEN,
         img_tag,
         _LAYOUT_CLOSE,
+        _VIEW_CLOSE,
+        _SCREEN_CLOSE,
+        "",
     ]
-
-    if title:
-        lines.append(build_title_bar(title, instance))
-
-    lines += [_VIEW_CLOSE, _SCREEN_CLOSE, ""]
     return "\n".join(lines)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="将外部图片 URL 包装成最小 TRMNL Blade markup。",
+        description="将图片包装成最小 TRMNL Blade markup（不包含 title-bar）。",
         epilog=(
+            "图片来源（二选一）：\n"
+            "  --file  本地文件，转为 base64 data URI 内嵌（推荐，无需上传图片）\n"
+            "  --url   已有的外部 URL\n\n"
             "结构规则：\n"
             "  screen > view > layout\n"
-            "  title-bar 是 layout 的兄弟节点（非子节点）\n"
-            '  图片使用框架原生 <img class="image w--full h--full image--{fit}"> 元素\n\n'
+            '  图片使用框架原生 <img class="image w--full h--full image-dither image--{fit}"> 元素\n'
+            "  wrapper 默认优先启用 image-dither；仅在确认关闭后实机更好时再用 --no-dither\n\n"
             "退出码：\n"
             "  0  成功\n"
-            "  1  运行时错误（写入失败）\n"
-            "  2  参数错误（URL 为空等）"
+            "  1  运行时错误（读取文件失败、写入失败）\n"
+            "  2  参数错误（未指定图片来源等）"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--url",
-        required=True,
-        help="要嵌入的图片 URL（必填）。",
+
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument(
+        "--file",
+        help="本地图片文件路径，转为 base64 data URI 内嵌（推荐）。",
     )
+    source_group.add_argument(
+        "--url",
+        help="已有的外部图片 URL。",
+    )
+
     parser.add_argument(
         "--alt",
         default="",
         help="图片 alt 文字（可选，默认为空）。",
-    )
-    parser.add_argument(
-        "--title",
-        help="title-bar 标题（省略则不生成 title-bar）。",
-    )
-    parser.add_argument(
-        "--instance",
-        help="title-bar 副标题 / 实例名（需配合 --title 使用）。",
     )
     parser.add_argument(
         "--fit",
@@ -103,15 +106,24 @@ def parse_args() -> argparse.Namespace:
         default="contain",
         help="图片适配方式：contain（留白缩入，默认）/ cover（裁剪填满）/ fill（拉伸填满）。",
     )
-    parser.add_argument(
+    dither_group = parser.add_mutually_exclusive_group()
+    dither_group.add_argument(
         "--dither",
+        dest="dither",
         action="store_true",
-        help="添加 image-dither class，适用于 1-bit 黑白电子墨水屏。",
+        help="显式启用 image-dither class（默认已开启）。",
+    )
+    dither_group.add_argument(
+        "--no-dither",
+        dest="dither",
+        action="store_false",
+        help="关闭 image-dither；仅在实机确认不加更好时使用。",
     )
     parser.add_argument(
         "--out",
         help="输出文件路径（省略则输出到 stdout）。",
     )
+    parser.set_defaults(dither=True)
     return parser.parse_args()
 
 
@@ -119,17 +131,21 @@ def main() -> int:
     try:
         args = parse_args()
 
-        url = args.url.strip()
-        if not url:
-            raise ValueError("--url 不能为空")
-        if args.instance and not args.title:
-            raise ValueError("--instance 需要与 --title 一起使用")
+        if args.file:
+            file_path = Path(args.file)
+            if not file_path.exists():
+                raise ValueError(f"图片文件不存在：{file_path}")
+            if not file_path.is_file():
+                raise ValueError(f"不是普通文件：{file_path}")
+            src = _file_to_data_uri(file_path)
+        else:
+            src = args.url.strip()
+            if not src:
+                raise ValueError("--url 不能为空")
 
         markup = build_markup(
-            url,
+            src,
             args.alt,
-            args.title,
-            args.instance,
             args.fit,
             args.dither,
         )

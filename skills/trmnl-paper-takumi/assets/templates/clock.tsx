@@ -2,9 +2,11 @@
  * clock.tsx — Retro monospace clock display for TRMNL e-paper (800×480).
  * Fully self-contained: renders current system time at build time.
  */
-import React from "react"
 import type { RenderOptions } from "@takumi-rs/core"
 import { MONO_FONT_STACK } from "./_shared"
+
+/** Single auxiliary gray for all secondary elements. */
+const AUX_GRAY = "#999999"
 
 export const renderOptions: Partial<RenderOptions> = {
   width: 800,
@@ -115,7 +117,7 @@ export default function ClockScene({ label = "TRMNL" }: Props) {
               fontSize: 56,
               fontWeight: 400,
               lineHeight: 1.55,
-              color: "#888888",
+              color: AUX_GRAY,
               marginLeft: 12,
             }}
           >
@@ -129,7 +131,7 @@ export default function ClockScene({ label = "TRMNL" }: Props) {
           style={{
             fontSize: 17,
             letterSpacing: 3,
-            color: "#333333",
+            color: "#000000",
             textTransform: "uppercase",
           }}
         >
@@ -144,7 +146,7 @@ export default function ClockScene({ label = "TRMNL" }: Props) {
               style={{
                 width: 6,
                 height: 6,
-                background: i % 4 === 0 ? "#000000" : "#cccccc",
+                background: i % 4 === 0 ? "#000000" : AUX_GRAY,
               }}
             />
           ))}
