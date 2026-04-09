@@ -1,0 +1,21 @@
+{
+  "name": "trmnl-paper-takumi",
+  "version": "0.1.0",
+  "description": "Local render environment for TRMNL e-paper scenes via @takumi-rs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "tsx scripts/render_scene.tsx"
+  },
+  "dependencies": {
+    "@takumi-rs/core": "^0.73.1",
+    "@takumi-rs/helpers": "^0.73.1",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/react": "^18.3.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.7.0"
+  }
+}

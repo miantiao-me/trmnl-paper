@@ -5,9 +5,9 @@
 ## 项目速览
 
 - `trmnl-paper-blade`：生成 TRMNL Framework v3 / `trmnl-blade` 的 Blade markup
+- `trmnl-paper-takumi`：用 Takumi JSX / Tailwind 走 image-first 路线，生成 800x480 图像并包最小 TRMNL markup
 - `trmnl-paper-screen`：把已有 markup 通过 LaraPaper `/api/screens` 推送到设备
-- 仓库以文档与 skill 说明为主，Python 脚本：`push_screen.py`（推送）与 `validate_markup.py`（校验）
-- 无第三方依赖，Python 脚本仅使用标准库
+- 仓库以文档与 skill 说明为主；`blade` / `screen` 的 Python 脚本仅使用标准库，`takumi` 在 skill 目录内使用独立 Node 依赖
 
 ## 目录结构
 
@@ -21,6 +21,12 @@ skills/
 │   │   ├── design-rules.md, patterns.md, attributes.md, colors.md
 │   │   ├── guides.md, utilities.md
 │   └── scripts/validate_markup.py
+├── trmnl-paper-takumi/
+│   ├── SKILL.md
+│   ├── assets/templates/         # Takumi scene 模板
+│   ├── references/               # Takumi 能力、工作流、wrapper 规则、示例
+│   ├── scripts/render_scene.tsx
+│   └── scripts/wrap_image_markup.py
 └── trmnl-paper-screen/
     ├── SKILL.md
     ├── references/api-screens.md
@@ -38,6 +44,21 @@ python3 -m py_compile skills/trmnl-paper-screen/scripts/push_screen.py
 python3 -m py_compile skills/trmnl-paper-blade/scripts/validate_markup.py
 python3 skills/trmnl-paper-screen/scripts/push_screen.py --help
 python3 skills/trmnl-paper-blade/scripts/validate_markup.py --help
+python3 skills/trmnl-paper-takumi/scripts/wrap_image_markup.py --help
+```
+
+### Takumi 渲染环境检查
+
+`trmnl-paper-takumi` 单独使用 Node 依赖，在 skill 目录内安装与验证：
+
+```bash
+cd skills/trmnl-paper-takumi
+npm install
+npx tsc --noEmit
+npm run render -- --scene assets/templates/clock.tsx
+npm run render -- --scene assets/templates/google-font-showcase.tsx
+python3 -m py_compile scripts/wrap_image_markup.py
+ruff check scripts/wrap_image_markup.py
 ```
 
 ### Blade markup 校验
@@ -65,6 +86,19 @@ python3 skills/trmnl-paper-screen/scripts/push_screen.py \
   --mac-address AA:BB:CC:DD:EE:FF \
   --api-key test-key \
   --markup-file <some-file>
+```
+
+### Takumi wrapper 验证
+
+改动 `wrap_image_markup.py` 或 image-first 工作流后，补一次 wrapper 校验：
+
+```bash
+python3 skills/trmnl-paper-takumi/scripts/wrap_image_markup.py \
+  --url https://example.com/demo.webp \
+  --title Demo \
+  --out /tmp/demo.markup
+
+python3 skills/trmnl-paper-blade/scripts/validate_markup.py /tmp/demo.markup
 ```
 
 ## 代码风格（Python）
@@ -121,6 +155,9 @@ python3 skills/trmnl-paper-screen/scripts/push_screen.py \
 - 优先复用 `<x-trmnl::...>` 组件，不要先写自由 HTML/CSS
 - 以 TRMNL Framework v3 与 `trmnl-blade` 为准，不要臆造不存在的组件或 props
 - Blade 结构层级与 e-paper 约束以 `references/design-rules.md` 为准
+- `trmnl-paper-takumi` 只负责 image-first 路线：Takumi scene → 图片 → 最小 wrapper，不替代结构化 Blade skill
+- `trmnl-paper-takumi` 默认只在 scene 声明 `googleFonts` 或显式传 `--google-font` 时才远程加载 Google Fonts
+- 远端推送前，Takumi 产物必须先变成可访问 URL，不能直接把本地文件路径交给 LaraPaper
 - `trmnl-paper-screen` 只使用已验证路径：`POST /api/screens`
 - 推送认证只用设备级凭据：`id=<MAC address>`、`access-token=<device API key>`
 - 默认先 dry-run；只有用户明确要求时才真的发送请求
@@ -140,12 +177,24 @@ python3 skills/trmnl-paper-screen/scripts/push_screen.py \
 2. 请求格式以 `references/api-screens.md` 为准
 3. 保持纯标准库，保留 dry-run、安全 masking、清晰错误输出
 
+### 改 `trmnl-paper-takumi` 时
+
+1. 先读 `skills/trmnl-paper-takumi/SKILL.md`
+2. Takumi 能力边界、字体、图片与 Google Fonts → `references/takumi-basics.md`
+3. 从 scene 到 wrapper 的链路 → `references/render-workflow.md`
+4. TRMNL 最小包装规则 → `references/trmnl-wrapper.md`
+5. 命令示例 → `references/examples.md`
+6. Node API 与当前 skill 封装边界 → `references/api_reference.md`
+7. 改完后跑 `npx tsc --noEmit` + 至少一次模板渲染 + wrapper 校验
+
 ## 验证清单
 
 1. **文档改动**：核对上游文档或源码，确认没有虚构内容
 2. **Blade markup 改动**：运行 `validate_markup.py` 校验结构
 3. **Python 脚本改动**：`py_compile` + `--help` + `ruff check`
-4. **请求构造逻辑改动**：补一次 dry-run 验证
+4. **Takumi 脚本改动**：`npm install`（首次）+ `npx tsc --noEmit` + 至少一次模板渲染
+5. **Takumi wrapper / image-first 工作流改动**：生成一次 `.markup` 并用 `validate_markup.py` 校验
+6. **请求构造逻辑改动**：补一次 dry-run 验证
 
 ## 参考资料更新
 
@@ -155,4 +204,5 @@ python3 skills/trmnl-paper-screen/scripts/push_screen.py \
 
 - TRMNL Framework Docs: https://trmnl.com/framework/docs/v3
 - trmnl-blade: https://github.com/bnussbau/trmnl-blade
+- Takumi: https://github.com/kane50613/takumi
 - LaraPaper: https://github.com/usetrmnl/larapaper
